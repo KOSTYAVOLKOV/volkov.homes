@@ -737,7 +737,7 @@ main{padding-top:var(--head)}
 </div>
 
 <div class="imgwarn mono" id="imgwarn">
-  <b>Foto&rsquo;s niet gevonden.</b> &nbsp;Houd index.html naast de map &ldquo;img&rdquo; — pak het hele archief uit en open index.html daarbinnen.
+  <b>Foto&rsquo;s niet gevonden.</b> &nbsp;Controleer de Blob-assets of de map &ldquo;img&rdquo; wanneer je lokaal werkt.
 </div>
 
 <a class="wafab" id="waFab" href="#" target="_blank" rel="noopener" aria-label="Chat on WhatsApp">
@@ -1618,7 +1618,8 @@ $('#burger').addEventListener('click',()=>{
   if(location.protocol==='data:') return;
   const test=new Image();
   test.onerror=()=>$('#imgwarn').classList.add('is-on');
-  test.src=kPhoto(KITCHENS[0].slug,1,true);
+  // Проверяем именно итоговый URL: Blob в production, локальный img/ при fallback.
+  test.src=asset(kPhoto(KITCHENS[0].slug,1,true));
 })();
 
 animate();
