@@ -529,7 +529,7 @@ main{padding-top:var(--head)}
     <!-- 1. Главное фото на весь экран -->
     <div class="hero">
       <div class="media">
-        <div class="hero__video" id="yt-hero"></div>
+        <div class="hero__video" id="milwaukee-animation" aria-hidden="true"></div>
       </div>
       <div class="hero__inner">
         <p class="mono hero__eyebrow" data-i18n="hero.eyebrow">Aannemer &amp; verbouwing — Amsterdam · Rotterdam · Randstad</p>
@@ -1299,14 +1299,75 @@ const DRAWINGS = ['img/drawing-01.png','img/drawing-02.png','img/drawing-03.png'
   },3800);
 })();
 
-/* фоновое видео в hero: Bunny Stream embed — без контролов, зациклен, без звука */
+/* ---------- hero: pixel 3D Milwaukee animation ---------- */
 (function(){
-  const host=document.getElementById('yt-hero'); if(!host) return;
-  const f=document.createElement('iframe');
-  f.src='https://iframe.mediadelivery.net/embed/737403/eb63cfaf-ba75-4951-aa5b-b4043de971ad?autoplay=true&loop=true&muted=true&preload=true&controls=false';
-  f.className='hero__video'; f.allow='autoplay'; f.tabIndex=-1;
-  f.setAttribute('aria-hidden','true'); f.title='';
-  host.replaceWith(f);
+  const container=document.getElementById('milwaukee-animation');
+  if(!container || typeof THREE === 'undefined') return;
+
+  const scene=new THREE.Scene();
+  const camera=new THREE.PerspectiveCamera(45,1,0.1,1000);
+  const renderer=new THREE.WebGLRenderer({antialias:false,alpha:true});
+  renderer.setPixelRatio(0.5);
+  renderer.setClearColor(0x000000,0);
+  container.appendChild(renderer.domElement);
+
+  const ambientLight=new THREE.AmbientLight(0xffffff,0.8);
+  scene.add(ambientLight);
+  const dirLight=new THREE.DirectionalLight(0xffffff,1.2);
+  dirLight.position.set(5,10,7);
+  scene.add(dirLight);
+
+  const group=new THREE.Group();
+  const redMat=new THREE.MeshLambertMaterial({color:0xdc0000});
+  const blackMat=new THREE.MeshLambertMaterial({color:0x111111});
+  const metalMat=new THREE.MeshLambertMaterial({color:0xaaaaaa});
+
+  const drillBody=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.8,1.8),redMat);
+  const drillHandle=new THREE.Mesh(new THREE.BoxGeometry(0.5,1.2,0.6),blackMat);
+  drillHandle.position.set(0,-0.8,0.2);
+  const drillChuck=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.3,0.8,8),metalMat);
+  drillChuck.rotation.x=Math.PI/2;
+  drillChuck.position.set(0,0.1,1.1);
+
+  const drill=new THREE.Group();
+  drill.add(drillBody,drillHandle,drillChuck);
+  drill.position.set(-1.2,0,0);
+
+  const tapeBody=new THREE.Mesh(new THREE.BoxGeometry(1.2,1.2,0.7),redMat);
+  const tapeGrip=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.3,0.5),blackMat);
+  const tapeHook=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.2,0.3),metalMat);
+  tapeHook.position.set(0.6,-0.5,0.2);
+
+  const tape=new THREE.Group();
+  tape.add(tapeBody,tapeGrip,tapeHook);
+  tape.position.set(1.2,0,0);
+
+  group.add(drill,tape);
+  scene.add(group);
+  camera.position.set(0,1.5,5);
+  camera.lookAt(0,0,0);
+
+  function resize(){
+    const w=Math.max(1,container.clientWidth);
+    const h=Math.max(1,container.clientHeight);
+    camera.aspect=w/h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w,h,false);
+  }
+  resize();
+  window.addEventListener('resize',resize,{passive:true});
+
+  let running=true;
+  document.addEventListener('visibilitychange',()=>{running=!document.hidden;});
+  function animate(){
+    requestAnimationFrame(animate);
+    if(!running) return;
+    group.rotation.y+=0.02;
+    drill.rotation.x+=0.01;
+    tape.rotation.z+=0.01;
+    renderer.render(scene,camera);
+  }
+  animate();
 })();
 
 /* ---------- motion engine ---------- */
@@ -1570,5 +1631,6 @@ animate();
 $('#year').textContent = new Date().getFullYear();
 })();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </body>
 </html>
