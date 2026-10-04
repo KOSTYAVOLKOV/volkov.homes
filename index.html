@@ -878,6 +878,37 @@ function asset(src){
   return ASSETS[s] || s;
 }
 
+const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v|ogg)(?:[?#].*)?$/i;
+
+function isVideo(src){
+  return VIDEO_EXTENSIONS.test(String(src || ''));
+}
+
+function video(src, options = {}){
+  if(!src) return '';
+  const {
+    cls = '',
+    poster = '',
+    autoplay = true,
+    muted = true,
+    loop = true,
+    controls = false,
+    playsinline = true
+  } = options;
+
+  const resolved = asset(src);
+  const attrs = [
+    autoplay ? 'autoplay' : '',
+    muted ? 'muted' : '',
+    loop ? 'loop' : '',
+    controls ? 'controls' : '',
+    playsinline ? 'playsinline' : '',
+    poster ? `poster="${esc(asset(poster))}"` : ''
+  ].filter(Boolean).join(' ');
+
+  return `<video class="${esc(cls)}" ${attrs} preload="metadata"><source src="${esc(resolved)}"></video>`;
+}
+
 async function loadBlobAssets(){
   try{
     const r = await fetch('/api/assets', { cache:'no-store' });
@@ -899,10 +930,13 @@ function rewriteStaticAssets(){
     if(resolved !== src) el.style.setProperty('--img', `url('${resolved}')`);
   });
 
-  document.querySelectorAll('img[src]').forEach(img=>{
-    const src = img.getAttribute('src');
-    const resolved = asset(src);
-    if(resolved !== src) img.setAttribute('src', resolved);
+  document.querySelectorAll('img[src], video[src], video[poster], source[src]').forEach(el=>{
+    for(const attr of ['src','poster']){
+      const src = el.getAttribute(attr);
+      if(!src) continue;
+      const resolved = asset(src);
+      if(resolved !== src) el.setAttribute(attr, resolved);
+    }
   });
 }
 
