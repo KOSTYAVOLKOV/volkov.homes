@@ -750,6 +750,7 @@ main{padding-top:var(--head)}
   <p class="mono"><a href="contact/" data-i18n="nav.contact">Contact</a></p>
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (async function(){
   /* ---------- Vercel Blob asset resolver ---------- */
@@ -1302,7 +1303,13 @@ const DRAWINGS = ['img/drawing-01.png','img/drawing-02.png','img/drawing-03.png'
 /* ---------- hero: pixel 3D Milwaukee animation ---------- */
 (function(){
   const container=document.getElementById('milwaukee-animation');
-  if(!container || typeof THREE === 'undefined') return;
+  if(!container) return;
+
+  function initMilwaukee(){
+    if(typeof THREE === 'undefined'){
+      setTimeout(initMilwaukee,50);
+      return;
+    }
 
   const scene=new THREE.Scene();
   const camera=new THREE.PerspectiveCamera(45,1,0.1,1000);
@@ -1368,6 +1375,9 @@ const DRAWINGS = ['img/drawing-01.png','img/drawing-02.png','img/drawing-03.png'
     renderer.render(scene,camera);
   }
   animate();
+  }
+
+  requestAnimationFrame(initMilwaukee);
 })();
 
 /* ---------- motion engine ---------- */
@@ -1631,6 +1641,5 @@ animate();
 $('#year').textContent = new Date().getFullYear();
 })();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </body>
 </html>
