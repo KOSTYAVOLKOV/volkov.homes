@@ -1,12 +1,7 @@
 {
-  "name": "volkov-studio-blob-assets",
   "private": true,
   "type": "module",
-  "scripts": {
-    "blob:upload": "node scripts/upload-assets.mjs",
-    "blob:replace": "node scripts/replace-asset.mjs"
-  },
   "dependencies": {
-    "@vercel/blob": "^2.6.1"
+    "@vercel/blob": "latest"
   }
 }

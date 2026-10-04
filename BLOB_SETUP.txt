@@ -1,0 +1,7 @@
+Vercel Blob integration
+
+1. The site requests /api/assets before rendering.
+2. /api/assets lists img/ and video/ from Vercel Blob using BLOB_READ_WRITE_TOKEN.
+3. Image paths in PROJECTS, kitchens and technical drawings resolve through the Blob map.
+4. If the API is unavailable, the site falls back to local img/ paths.
+5. Ensure BLOB_READ_WRITE_TOKEN is set in Vercel Project Settings -> Environment Variables.
