@@ -754,7 +754,11 @@ main{padding-top:var(--head)}
 (async function(){
   /* ---------- Vercel Blob asset resolver ---------- */
   let ASSET_MAP = {};
-  const asset = path => ASSET_MAP[path] || path;
+  const asset = path => {
+    if (!path) return path;
+    const key = String(path).replace(/^\/+/, '');
+    return ASSET_MAP[key] || path;
+  };
 
   try {
     const r = await fetch('/api/assets', { cache: 'no-store' });
@@ -872,7 +876,7 @@ const NEWS = [];
 const $ = (s,r=document)=>r.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const media = (src,ph,cls='') =>
-  src ? `<div class="media ${cls}" style="--img:url('${esc(src)}')"></div>`
+  src ? `<div class="media ${cls}" style="--img:url('${esc(asset(src))}')"></div>`
       : `<div class="media ${cls}" data-ph="${esc(ph)}"></div>`;
 const num = i => String(i+1).padStart(2,'0');
 const F = (p,k) => (LANG==='en' && p.en && p.en[k]) ? p.en[k] : p[k];
@@ -1017,7 +1021,7 @@ renderFeatured();
 /* ---------- render: список проектов ---------- */
 $('#projectsList').innerHTML = PROJECTS.map((p,i)=>`
   <a class="pitem" href="#/project/${p.slug}" data-i="${i}">
-    <span class="thumb"${p.img?` style="--img:url('${p.img}')"`:''}></span>
+    <span class="thumb"${p.img?` style="--img:url('${asset(p.img)}')"`:''}></span>
     <span class="pitem__txt">
       <span class="mono">${num(i)}</span>
       <span class="pitem__name">${esc(p.title)}</span>
@@ -1119,7 +1123,7 @@ function renderProject(slug, sub){
 }
 
 /* элементы ленты */
-const vph = (src,alt)=>`<figure class="vph"><img src="${src}" alt="${esc(alt)}" loading="lazy"></figure>`;
+const vph = (src,alt)=>`<figure class="vph"><img src="${asset(src)}" alt="${esc(alt)}" loading="lazy"></figure>`;
 const vphEmpty = ph =>`<div class="vph vph--ph"><div class="media" data-ph="${esc(ph)}"></div></div>`;
 
 function viewer(railL, railR, side, info, items, nextHref, nextTitle){
@@ -1151,7 +1155,7 @@ const railProjects = active => {
   const idx=PROJECTS.findIndex(p=>p.slug===active);
   return rails(PROJECTS, idx, U('projects'),
     p=>U('project/'+p.slug),
-    (p,k)=> p.img?`<span class="thumb" style="--img:url('${p.img}')"></span>`
+    (p,k)=> p.img?`<span class="thumb" style="--img:url('${asset(p.img)}')"></span>`
                :`<span class="vr__box mono">${num(k)}</span>`);
 };
 const railAlbums = active => {
