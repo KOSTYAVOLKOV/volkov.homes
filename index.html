@@ -137,7 +137,7 @@ p{max-width:56ch}
 }
 .brand{font-weight:700;letter-spacing:.02em;font-size:16px;text-transform:uppercase;white-space:nowrap;flex:0 0 auto}
 .brand span{color:var(--mid)}
-.nav{display:flex;gap:clamp(10px,2.2vw,34px);flex-wrap:wrap;justify-content:flex-end;min-width:0}
+.nav{display:flex;align-items:center;gap:clamp(10px,2.2vw,34px);flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .nav a{
   font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;
   padding-bottom:2px;border-bottom:1px solid transparent;color:var(--mid);
@@ -885,10 +885,72 @@ const media = (src,ph,cls='') =>
 const num = i => String(i+1).padStart(2,'0');
 const F = (p,k) => (LANG==='en' && p.en && p.en[k]) ? p.en[k] : p[k];
 
+/* ============ STORYBLOK ============ */
+function storyblokAsset(value){
+  if(!value) return '';
+  if(typeof value === 'string') return value;
+  return value.filename || value.url || '';
+}
+function storyblokRichText(value){
+  if(!value) return '';
+  if(typeof value === 'string') return value;
+  const walk = node => {
+    if(!node) return '';
+    if(typeof node === 'string') return node + ' ';
+    let out = node.text || '';
+    if(Array.isArray(node.content)) out += node.content.map(walk).join(' ');
+    return out;
+  };
+  return walk(value).replace(/\s+/g,' ').trim();
+}
+async function loadStoryblokProject(slug){
+  if(!slug) return false;
+  try{
+    const preview = INFRAME || /[?&]_storyblok/.test(location.search);
+    const r = await fetch('/api/storyblok?'+new URLSearchParams({slug, preview:preview?'1':'0'}).toString(), {cache:'no-store'});
+    if(!r.ok) throw new Error('Storyblok HTTP '+r.status);
+    const data = await r.json();
+    const c = data && data.story && data.story.content;
+    if(!c) return false;
+    const project = {
+      slug: data.story.slug || slug,
+      title: c.title || data.story.name || slug,
+      location: c.location || '',
+      year: c.year || '',
+      scope: c.category || '',
+      client: '',
+      status: 'Storyblok',
+      img: storyblokAsset(c.cover),
+      shots: Array.isArray(c.gallery) ? c.gallery.map(storyblokAsset).filter(Boolean) : [],
+      lead: storyblokRichText(c.description),
+      text: storyblokRichText(c.description),
+      featured: !!c.featured,
+      en: {}
+    };
+    const i = PROJECTS.findIndex(p=>p.slug===project.slug);
+    if(i>=0) PROJECTS[i] = {...PROJECTS[i], ...project};
+    else PROJECTS.push(project);
+    return true;
+  }catch(e){
+    console.warn('[Storyblok] Falling back to local PROJECTS.', e);
+    return false;
+  }
+}
+
 /* ============ ЯЗЫК И URL ============ */
 const INFRAME = (function(){ try{ return window.self !== window.top; }catch(e){ return true; } })();
 const HASHMODE = INFRAME || location.protocol === 'file:';
 const ORIGIN = 'https://volkov.studio';
+
+/* Storyblok Visual Editor: the iframe pathname is the story slug.
+   The editor may also put its own state into location.hash, so in an iframe
+   we prefer a real pathname such as /aerdenhout over that editor hash. */
+function routeInput(){
+  const path = String(location.pathname || '').replace(/^\/+|\/+$/g, '');
+  const hash = String(location.hash || '').replace(/^#/, '').replace(/^\/+|\/+$/g, '');
+  if(path && path !== 'index.html') return '/' + path;
+  return hash ? '/' + hash : '/';
+}
 
 const SEG = {
   nl:{ projects:'projecten', services:'diensten', news:'nieuws', contact:'contact' },
@@ -897,7 +959,7 @@ const SEG = {
 
 function parseUrl(u){
   let s = String(u||'');
-  s = s.replace(/^https?:\/\/[^/]+/,'').replace(/^#/,'').replace(/^\/+/,'').replace(/\/+$/,'');
+  s = s.replace(/^https?:\/\/[^/]+/,'').replace(/^#/,'').replace(/^\/+/, '').replace(/\/+$/,'');
   s = s.split('?')[0];
   let segs = s ? s.split('/') : [];
   let lang = 'nl';
@@ -910,7 +972,8 @@ function parseUrl(u){
   if(s0==='nieuws'   || s0==='news')     return {lang, route:'news'};
   if(s0==='contact')                     return {lang, route:'contact'};
   if(s0==='home')                        return {lang, route:'home'};
-  return {lang, route:'home'};
+  // Storyblok Visual Editor opens a story directly at /<slug>.
+  return {lang, route:'project/'+s0+(rest ? '/'+rest : '')};
 }
 
 function pathFor(route, lang){
@@ -923,7 +986,7 @@ function pathFor(route, lang){
   return k ? L + k + '/' : L;
 }
 
-let LANG = parseUrl(HASHMODE ? (location.hash||'') : location.pathname).lang;
+let LANG = parseUrl(routeInput()).lang;
 
 /* U(route) — ссылка для текущего языка */
 function U(route, lang){
@@ -1515,7 +1578,7 @@ const WA_TEXT='Hello VOLKOV.STUDIO, I would like to discuss a project';
 
 /* ---------- router + мета-теги ---------- */
 const pages = document.querySelectorAll('[data-page]');
-let ROUTE = parseUrl(HASHMODE ? (location.hash||'') : location.pathname).route;
+let ROUTE = parseUrl(routeInput()).route;
 
 const META = {
   nl:{
@@ -1669,7 +1732,14 @@ function route_render(){
   const parts = raw.split('/');
   let target = parts[0]==='project' ? 'project' : parts[0];
   LB.close();
-  if(target === 'project'){ if(!renderProject(parts[1], parts[2])) target = 'projects'; }
+  if(target === 'project'){
+    const ok = renderProject(parts[1], parts[2]);
+    if(!ok){
+      const detail = $('#projectDetail');
+      if(detail) detail.innerHTML = `<div style="padding:40px 0"><p class="mono">Storyblok project not loaded</p><h1>${esc(parts[1]||'')}</h1><p class="lead">Check the Storyblok API response and Vercel deployment.</p></div>`;
+      console.warn('[Storyblok] Project route has no loaded project:', parts[1]);
+    }
+  }
   if(![...pages].some(p=>p.dataset.page===target)) target = 'home';
 
   pages.forEach(p=>p.classList.toggle('is-active', p.dataset.page===target));
@@ -1688,15 +1758,26 @@ function route_render(){
   window.scrollTo(0,0);
   if(window.__waCheck) setTimeout(window.__waCheck,60);
 }
-function syncFromUrl(){
-  const u = parseUrl(HASHMODE ? (location.hash||'') : location.pathname);
+async function syncFromUrl(){
+  const u = parseUrl(routeInput());
   LANG = u.lang; ROUTE = u.route;
-  applyLang(); renderAll(); route_render();
+  applyLang();
+  const parts = ROUTE.split('/');
+  if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
+  renderAll(); route_render();
 }
 addEventListener('hashchange', syncFromUrl);
 addEventListener('popstate', syncFromUrl);
-applyLang();
-route_render();
+async function boot(){
+  const initial = parseUrl(routeInput());
+  LANG = initial.lang; ROUTE = initial.route;
+  applyLang();
+  const parts = ROUTE.split('/');
+  if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
+  renderAll();
+  route_render();
+}
+boot();
 
 /* ---------- mobile menu ---------- */
 $('#burger').addEventListener('click',()=>{
