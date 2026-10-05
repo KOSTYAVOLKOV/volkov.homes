@@ -754,6 +754,7 @@ main{padding-top:var(--head)}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://app.storyblok.com/f/storyblok-v2-latest.js"></script>
 <script>
 (async function(){
   /* ---------- Vercel Blob asset resolver ---------- */
@@ -903,6 +904,43 @@ function storyblokRichText(value){
   };
   return walk(value).replace(/\s+/g,' ').trim();
 }
+let STORYBLOK_STORY = null;
+function storyblokEditableOptions(story){
+  const raw = story && story.content && story.content._editable;
+  if(typeof raw !== 'string') return null;
+  try{
+    const json = raw.replace(/^<!--#storyblok#/, '').replace(/-->$/, '');
+    const data = JSON.parse(json);
+    return {
+      'data-blok-c': JSON.stringify(data),
+      'data-blok-uid': `${data.id}-${data.uid}`
+    };
+  }catch(e){ return null; }
+}
+function applyStoryblokStory(story, requestedSlug){
+  const c = story && story.content;
+  if(!c) return false;
+  STORYBLOK_STORY = story;
+  const project = {
+    slug: story.slug || requestedSlug,
+    title: c.title || story.name || requestedSlug,
+    location: c.location || '',
+    year: c.year || '',
+    scope: c.category || '',
+    client: '',
+    status: 'Storyblok',
+    img: storyblokAsset(c.cover),
+    shots: Array.isArray(c.gallery) ? c.gallery.map(storyblokAsset).filter(Boolean) : [],
+    lead: storyblokRichText(c.description),
+    text: storyblokRichText(c.description),
+    featured: !!c.featured,
+    en: {}
+  };
+  const i = PROJECTS.findIndex(p=>p.slug===project.slug);
+  if(i>=0) PROJECTS[i] = {...PROJECTS[i], ...project};
+  else PROJECTS.push(project);
+  return true;
+}
 async function loadStoryblokProject(slug){
   if(!slug) return false;
   try{
@@ -910,27 +948,8 @@ async function loadStoryblokProject(slug){
     const r = await fetch('/api/storyblok?'+new URLSearchParams({slug, preview:preview?'1':'0'}).toString(), {cache:'no-store'});
     if(!r.ok) throw new Error('Storyblok HTTP '+r.status);
     const data = await r.json();
-    const c = data && data.story && data.story.content;
-    if(!c) return false;
-    const project = {
-      slug: data.story.slug || slug,
-      title: c.title || data.story.name || slug,
-      location: c.location || '',
-      year: c.year || '',
-      scope: c.category || '',
-      client: '',
-      status: 'Storyblok',
-      img: storyblokAsset(c.cover),
-      shots: Array.isArray(c.gallery) ? c.gallery.map(storyblokAsset).filter(Boolean) : [],
-      lead: storyblokRichText(c.description),
-      text: storyblokRichText(c.description),
-      featured: !!c.featured,
-      en: {}
-    };
-    const i = PROJECTS.findIndex(p=>p.slug===project.slug);
-    if(i>=0) PROJECTS[i] = {...PROJECTS[i], ...project};
-    else PROJECTS.push(project);
-    return true;
+    if(!data || !data.story) return false;
+    return applyStoryblokStory(data.story, slug);
   }catch(e){
     console.warn('[Storyblok] Falling back to local PROJECTS.', e);
     return false;
@@ -1727,6 +1746,14 @@ document.addEventListener('keydown', ev=>{
 new MutationObserver(()=>{ fixLinks(); delink(); }).observe(document.documentElement,{childList:true,subtree:true});
 fixLinks(); delink();
 
+function syncStoryblokEditable(){
+  const detail = $('#projectDetail');
+  const opts = storyblokEditableOptions(STORYBLOK_STORY);
+  if(!detail || !opts) return;
+  detail.setAttribute('data-blok-c', opts['data-blok-c']);
+  detail.setAttribute('data-blok-uid', opts['data-blok-uid']);
+  detail.classList.add('storyblok__outline');
+}
 function route_render(){
   const raw = ROUTE || 'home';
   const parts = raw.split('/');
@@ -1734,6 +1761,7 @@ function route_render(){
   LB.close();
   if(target === 'project'){
     const ok = renderProject(parts[1], parts[2]);
+    syncStoryblokEditable();
     if(!ok){
       const detail = $('#projectDetail');
       if(detail) detail.innerHTML = `<div style="padding:40px 0"><p class="mono">Storyblok project not loaded</p><h1>${esc(parts[1]||'')}</h1><p class="lead">Check the Storyblok API response and Vercel deployment.</p></div>`;
@@ -1778,6 +1806,43 @@ async function boot(){
   route_render();
 }
 boot();
+
+/* ---------- Storyblok Visual Editor bridge ---------- */
+(function initStoryblokBridge(){
+  if(!INFRAME || typeof StoryblokBridge === 'undefined') return;
+  try{
+    const bridge = new StoryblokBridge();
+    window.__storyblokBridge = bridge;
+    bridge.on(['input','change','published'], async (event) => {
+      const story = event && event.story;
+      if(story && story.content){
+        applyStoryblokStory(story, story.slug || ROUTE.split('/')[1]);
+        const slug = story.slug || ROUTE.split('/')[1];
+        if(slug && ROUTE !== 'project/'+slug){
+          ROUTE = 'project/'+slug;
+          try{ history.replaceState({}, '', '/'+slug); }catch(e){}
+        }
+        renderAll();
+        route_render();
+      } else if(event && (event.action === 'change' || event.action === 'published')) {
+        const slug = ROUTE.split('/')[1];
+        if(slug) await loadStoryblokProject(slug);
+        renderAll();
+        route_render();
+      }
+    });
+    bridge.on('enterEditmode', async (event) => {
+      const slug = event && event.storyId ? ROUTE.split('/')[1] : ROUTE.split('/')[1];
+      if(slug){
+        await loadStoryblokProject(slug);
+        renderAll();
+        route_render();
+      }
+    });
+  }catch(e){
+    console.warn('[Storyblok] Bridge unavailable.', e);
+  }
+})();
 
 /* ---------- mobile menu ---------- */
 $('#burger').addEventListener('click',()=>{
