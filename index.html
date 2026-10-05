@@ -1513,70 +1513,6 @@ const WA_TEXT='Hello VOLKOV.STUDIO, I would like to discuss a project';
   check();
 })();
 
-/* ---------- Storyblok content adapter ---------- */
-async function loadStoryblokProjects(){
-  try{
-    const preview = new URLSearchParams(location.search).get('preview') === '1' ||
-      new URLSearchParams(location.search).has('_storyblok');
-    const endpoint = '/api/storyblok' + (preview ? '?preview=1' : '');
-    const r = await fetch(endpoint, {cache:'no-store'});
-    if(!r.ok) return false;
-    const data = await r.json();
-    if(!data.configured || !Array.isArray(data.stories) || !data.stories.length) return false;
-
-    const fromAsset = x => {
-      if(!x) return '';
-      if(typeof x === 'string') return x;
-      return x.filename || x.url || '';
-    };
-    const fromAssets = x => Array.isArray(x) ? x.map(fromAsset).filter(Boolean) : [];
-    const fromRichtext = x => {
-      if(!x) return '';
-      if(typeof x === 'string') return x;
-      const walk = node => {
-        if(!node) return '';
-        if(node.type === 'text') return node.text || '';
-        return Array.isArray(node.content) ? node.content.map(walk).join(node.type==='paragraph'?'\n':'') : '';
-      };
-      return walk(x);
-    };
-
-    const mapped = data.stories.map(story => {
-      const c = story.content || {};
-      const slug = c.slug || (story.full_slug || '').split('/').pop();
-      return {
-        slug,
-        title: c.title || story.name || slug,
-        location: c.location || '',
-        year: c.year || '',
-        scope: c.scope || '',
-        client: c.client || '',
-        status: c.status || '',
-        img: fromAsset(c.img),
-        shots: fromAssets(c.shots),
-        lead: c.lead || '',
-        text: fromRichtext(c.text),
-        en: {
-          title: c.title_en || c.title || story.name || slug,
-          scope: c.scope_en || c.scope || '',
-          status: c.status_en || c.status || '',
-          lead: c.lead_en || c.lead || ''
-        }
-      };
-    }).filter(p => p.slug);
-
-    if(!mapped.length) return false;
-    PROJECTS.splice(0, PROJECTS.length, ...mapped);
-    PROJECTS.forEach(resolveAssetValue);
-    renderAll();
-    route_render();
-    return true;
-  }catch(e){
-    console.warn('[Storyblok] Falling back to local PROJECTS.', e);
-    return false;
-  }
-}
-
 /* ---------- router + мета-теги ---------- */
 const pages = document.querySelectorAll('[data-page]');
 let ROUTE = parseUrl(HASHMODE ? (location.hash||'') : location.pathname).route;
@@ -1761,7 +1697,6 @@ addEventListener('hashchange', syncFromUrl);
 addEventListener('popstate', syncFromUrl);
 applyLang();
 route_render();
-loadStoryblokProjects();
 
 /* ---------- mobile menu ---------- */
 $('#burger').addEventListener('click',()=>{
