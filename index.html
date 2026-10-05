@@ -941,6 +941,20 @@ function applyStoryblokStory(story, requestedSlug){
   else PROJECTS.push(project);
   return true;
 }
+let STORYBLOK_PROJECTS_LOADED = false;
+async function loadStoryblokProjects(){
+  if(STORYBLOK_PROJECTS_LOADED) return true;
+  try{
+    const preview = INFRAME || /[?&]_storyblok/.test(location.search);
+    const r = await fetch('/api/storyblok-projects?'+new URLSearchParams({preview:preview?'1':'0'}).toString(), {cache:'no-store'});
+    if(!r.ok) throw new Error('Storyblok projects HTTP '+r.status);
+    const data = await r.json();
+    if(!Array.isArray(data.stories)) return false;
+    data.stories.map(story=>{ const c=story.content||{}; return {slug:story.slug,title:c.title||story.name||story.slug,location:c.location||'',year:c.year||'',scope:c.category||'',client:'',status:'Storyblok',img:storyblokAsset(c.cover),shots:Array.isArray(c.gallery)?c.gallery.map(storyblokAsset).filter(Boolean):[],lead:storyblokRichText(c.description),text:storyblokRichText(c.description),featured:!!c.featured,en:{},storyblok:true}; }).filter(p=>p.slug).forEach(project=>{ const i=PROJECTS.findIndex(p=>p.slug===project.slug); if(i>=0) PROJECTS[i]={...PROJECTS[i],...project}; else PROJECTS.push(project); });
+    STORYBLOK_PROJECTS_LOADED=true; return true;
+  }catch(e){ console.warn('[Storyblok] Falling back to local project list.',e); return false; }
+}
+
 async function loadStoryblokProject(slug){
   if(!slug) return false;
   try{
@@ -1103,16 +1117,7 @@ function renderFeatured(){ $('#featured').innerHTML = PROJECTS.slice(0,3).map((p
   </a>`).join(''); }
 renderFeatured();
 
-/* ---------- render: список проектов ---------- */
-/* ---------- render: список проектов ---------- */
-$('#projectsList').innerHTML = PROJECTS.map((p,i)=>`
-  <a class="pitem" href="#/project/${p.slug}" data-i="${i}">
-    <span class="thumb"${p.img?` style="--img:url('${asset(p.img)}')"`:''}></span>
-    <span class="pitem__txt">
-      <span class="mono">${num(i)}</span>
-      <span class="pitem__name">${esc(p.title)}</span>
-    </span>
-  </a>`).join('');
+/* ---------- render: список проектов ---------- */ function renderProjectsList(){ const box=$('#projectsList'); if(!box) return; box.innerHTML=PROJECTS.map((p,i)=>`<a class="pitem" href="#/project/${p.slug}" data-i="${i}"><span class="thumb"${p.img?` style="--img:url('${asset(p.img)}')"`:''}></span><span class="pitem__txt"><span class="mono">${num(i)}</span><span class="pitem__name">${esc(p.title)}</span></span></a>`).join(''); } renderProjectsList();
 
 /* превью справа: наведение выбирает проект, стрелки и миниатюры листают его фото */
 (function(){
@@ -1179,7 +1184,7 @@ function renderNews(){ $('#newsList').innerHTML = NEWS.length ? NEWS.map(n=>`
     ${n.text?`<p>${esc(n.text)}</p>`:''}</div>
   </article>`).join('') : '<p class="mono">'+T('news.empty')+'</p>'; }
 renderNews();
-function renderAll(){ renderFeatured(); renderNews(); }
+function renderAll(){ renderFeatured(); renderProjectsList(); renderNews(); }
 
 /* ---------- render: страница проекта ---------- */
 function renderProject(slug, sub){
@@ -1790,6 +1795,7 @@ async function syncFromUrl(){
   const u = parseUrl(routeInput());
   LANG = u.lang; ROUTE = u.route;
   applyLang();
+  await loadStoryblokProjects();
   const parts = ROUTE.split('/');
   if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
   renderAll(); route_render();
@@ -1800,6 +1806,7 @@ async function boot(){
   const initial = parseUrl(routeInput());
   LANG = initial.lang; ROUTE = initial.route;
   applyLang();
+  await loadStoryblokProjects();
   const parts = ROUTE.split('/');
   if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
   renderAll();
