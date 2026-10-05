@@ -1,0 +1,13 @@
+VOLKOV.STUDIO archive preparation status
+
+Completed:
+- Embedded IMG_P1 / IMG_P2 / IMG_P3 extracted to img/p1-cover.jpg, img/p2-cover.jpg, img/p3-cover.jpg.
+- Embedded DRAWINGS extracted to img/drawing-01.png, img/drawing-02.png, img/drawing-03.png.
+- index.html updated to reference those local files.
+- vercel.json copied to the site root.
+
+Still unresolved:
+- 18 images in the projects Oudezijds, Appartement interieur and 100 years FIDE are still referenced by lh3.googleusercontent.com URLs.
+- The supplied archive does not contain those 18 image files, only their external URLs.
+- They cannot be safely converted to local files without the actual image bytes. Do not replace them with invented/empty local files.
+- img/og-cover.jpg is also not supplied.

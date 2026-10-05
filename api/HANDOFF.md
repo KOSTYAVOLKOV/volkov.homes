@@ -1,0 +1,149 @@
+# ТЕХЗАДАНИЕ ПРОГРАММИСТУ — VOLKOV.STUDIO
+
+Статический сайт, один файл `index.html` (HTML + CSS + JS внутри), сборка не требуется.
+Задача: разместить на хостинге, заменить домен, вынести внешние фото на свой сервер, подключить аналитику.
+
+---
+
+## 1. Что в архиве
+
+```
+index.html        весь сайт
+img/              фотографии проектов
+robots.txt        для поисковиков
+sitemap.xml       карта сайта (25 URL, NL + EN)
+deploy/
+  _redirects      конфиг Netlify
+  vercel.json     конфиг Vercel
+  .htaccess       конфиг Apache / cPanel
+  nginx.conf      фрагмент для Nginx
+README.md         карта файла: где что править
+HANDOFF.md        этот файл
+```
+
+---
+
+## 2. Обязательное условие: SPA-rewrite
+
+Сайт использует реальные URL (`/projecten/aerdenhout/`, `/diensten/`, `/en/contact/`), а физический файл один.
+**Без правила «всё, что не файл → index.html» любая прямая ссылка и любой переход из Google дадут 404.**
+
+Возьмите нужный конфиг из папки `deploy/` и положите его туда, куда требует ваш хостинг:
+
+| Хостинг | Файл | Куда |
+|---|---|---|
+| Netlify | `_redirects` | в корень сайта |
+| Vercel | `vercel.json` | в корень репозитория |
+| Apache / cPanel / DirectAdmin | `.htaccess` | в корень сайта |
+| Nginx | `nginx.conf` | в server-блок |
+
+Сайт должен лежать **в корне домена**, не в подпапке.
+
+Проверка после деплоя: открыть `https<домен>/projecten/aerdenhout/` напрямую (не переходом по ссылке) — должна открыться страница проекта, а не 404.
+
+---
+
+## 3. Заменить домен
+
+Сейчас везде стоит заглушка `https://volkov.studio`. Заменить в четырёх местах:
+
+1. `index.html` → блок `<head>`: `canonical`, три `hreflang`, `og:url`, `og:image`, а также поля `url` и `@id` в блоке `application/ld+json`.
+2. `index.html` → в скрипте константа `const ORIGIN = 'https://volkov.studio';` (от неё считаются canonical и hreflang на каждой странице).
+3. `sitemap.xml` — все `<loc>` и `<xhtml:link>`.
+4. `robots.txt` — строка `Sitemap:`.
+
+Также выбрать основную версию (с www или без) и повесить 301 на неё — в `.htaccess` из архива это уже сделано (в пользу версии без www).
+
+---
+
+## 4. Вынести внешние фото на свой сервер
+
+Фото проектов **Oudezijds**, **Appartement interieur** и **100 years FIDE** подключены прямыми ссылками на Google Photos (`lh3.googleusercontent.com/...`). Такие ссылки со временем перестают работать и не индексируются как собственные изображения.
+
+Что сделать: скачать эти файлы, положить в `img/`, заменить URL в массиве `PROJECTS` на локальные пути (как уже сделано для остальных проектов).
+
+Заодно: три обложки первых проектов и три чертежа встроены в `index.html` как base64 (константы `IMG_P1`, `IMG_P2`, `IMG_P3`, массив `DRAWINGS`) — из-за этого файл тяжёлый. Вынести в `img/` и заменить на пути к файлам.
+
+---
+
+## 5. Оптимизация изображений
+
+- Пережать всё в WebP (fallback JPEG по желанию), длинная сторона 2000 px для лент, 800 px для превью.
+- `loading="lazy"` уже стоит на фото внутри проектов; добавить на остальные.
+- Положить `img/og-cover.jpg` 1200×630 — картинка для соцсетей (ссылка на неё уже есть в `<head>`).
+
+---
+
+## 6. Аналитика и цели
+
+Подключить GA4 (или Plausible — легче и без cookie-баннера). Обязательно настроить события:
+
+- клик по любой ссылке `wa.me` (кнопка WhatsApp в контактах + плавающая кнопка) — это основная конверсия;
+- клик по `tel:`;
+- просмотр страницы проекта.
+
+Cookie-баннер нужен только если ставите GA4 (GDPR/AVG). С Plausible не нужен.
+
+---
+
+## 7. Поисковые системы
+
+1. Google Search Console: подтвердить домен, отправить `sitemap.xml`, проверить отчёт «Индексирование» через неделю.
+2. Bing Webmaster Tools — то же самое (в NL небольшая, но живая доля).
+3. Проверить разметку: search.google.com/test/rich-results — должны определиться `GeneralContractor` и `BreadcrumbList`.
+4. Проверить hreflang: на каждой странице должны быть три тега — nl, en, x-default.
+
+---
+
+## 8. Что нужно от заказчика (без этого не закрыть)
+
+- домен и доступ к DNS;
+- адрес студии, e-mail, KvK, BTW — добавить в секцию контактов (`data-page="contact"`) и в JSON-LD (`address`, `vatID`);
+- `img/og-cover.jpg`;
+- решение по Google Business Profile (создаётся отдельно, не через сайт).
+
+---
+
+## 9. Что НЕ надо делать
+
+- Не менять структуру URL — она уже прописана в `sitemap.xml`, canonical и hreflang.
+- Не переводить сайт на CMS без необходимости: контент правится в двух массивах внутри файла (`PROJECTS`, `NEWS`), это описано в `README.md`.
+- Не удалять режим `#/...` в скрипте (константа `HASHMODE`) — он нужен, чтобы файл открывался локально и в предпросмотре.
+- Не трогать `data-i18n` атрибуты: на них держится переключатель NL/EN.
+
+---
+
+## 10. Структура URL (для справки)
+
+| Страница | NL | EN |
+|---|---|---|
+| Главная | `/` | `/en/` |
+| Проекты | `/projecten/` | `/en/projects/` |
+| Проект | `/projecten/<slug>/` | `/en/projects/<slug>/` |
+| Услуги | `/diensten/` | `/en/services/` |
+| Новости | `/nieuws/` | `/en/news/` |
+| Контакты | `/contact/` | `/en/contact/` |
+
+Slug'и проектов: `kitchens`, `geuzenkade-45`, `aerdenhout`, `schie-36`, `oudezijds`, `apartment-interior`, `fide-stand`.
+Внутри коллекции кухонь: `/projecten/kitchens/<slug-подборки>/`.
+
+---
+
+## 11. Приёмка
+
+- [ ] Прямой заход на `/projecten/aerdenhout/` открывает страницу проекта
+- [ ] Прямой заход на `/en/services/` открывает английскую версию услуг
+- [ ] Переключатель NL/EN меняет язык и URL
+- [ ] В `<head>` каждой страницы свой `title`, `description`, `canonical`
+- [ ] Ни одной ссылки на `lh3.googleusercontent.com` в коде
+- [ ] `sitemap.xml` и `robots.txt` открываются по домену
+- [ ] Rich Results Test проходит без ошибок
+- [ ] Кнопка WhatsApp открывает чат с +31 6 41 47 67 81
+- [ ] Фоновое видео на главной играет без звука и зациклено
+- [ ] PageSpeed Mobile ≥ 80 после оптимизации фото
+
+
+Optimization update: the Impact Driver assets were reduced to one monochrome GLB at 3d/impact-driver/impact-driver.glb. The 19 duplicate OBJ files and heavy PBR texture set are no longer needed for the Hero.
+
+
+V8: Impact Driver and Tape Measure were combined into 3d/tools/volkov-tools.glb. Tape Measure was reduced from ~196,890 to ~44,128 faces by vertex clustering and both tools use monochrome materials in the Hero.
