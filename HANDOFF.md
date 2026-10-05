@@ -141,3 +141,9 @@ Slug'и проектов: `kitchens`, `geuzenkade-45`, `aerdenhout`, `schie-36`,
 - [ ] Кнопка WhatsApp открывает чат с +31 6 41 47 67 81
 - [ ] Фоновое видео на главной играет без звука и зациклено
 - [ ] PageSpeed Mobile ≥ 80 после оптимизации фото
+
+
+Optimization update: the Impact Driver assets were reduced to one monochrome GLB at 3d/impact-driver/impact-driver.glb. The 19 duplicate OBJ files and heavy PBR texture set are no longer needed for the Hero.
+
+
+V8: Impact Driver and Tape Measure were combined into 3d/tools/volkov-tools.glb. Tape Measure was reduced from ~196,890 to ~44,128 faces by vertex clustering and both tools use monochrome materials in the Hero.
