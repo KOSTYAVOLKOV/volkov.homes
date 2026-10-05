@@ -1795,10 +1795,13 @@ async function syncFromUrl(){
   const u = parseUrl(routeInput());
   LANG = u.lang; ROUTE = u.route;
   applyLang();
-  await loadStoryblokProjects();
-  const parts = ROUTE.split('/');
-  if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
+  // Never block the initial render/3D hero on the CMS request.
   renderAll(); route_render();
+  loadStoryblokProjects().then(async ()=>{
+    const parts = ROUTE.split('/');
+    if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
+    renderAll(); route_render();
+  }).catch(e=>console.warn('[Storyblok] Background project sync failed.', e));
 }
 addEventListener('hashchange', syncFromUrl);
 addEventListener('popstate', syncFromUrl);
@@ -1806,11 +1809,15 @@ async function boot(){
   const initial = parseUrl(routeInput());
   LANG = initial.lang; ROUTE = initial.route;
   applyLang();
-  await loadStoryblokProjects();
-  const parts = ROUTE.split('/');
-  if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
+  // Render immediately so the embedded 3D hero can initialize without waiting for Storyblok.
   renderAll();
   route_render();
+  loadStoryblokProjects().then(async ()=>{
+    const parts = ROUTE.split('/');
+    if(parts[0]==='project' && parts[1]) await loadStoryblokProject(parts[1]);
+    renderAll();
+    route_render();
+  }).catch(e=>console.warn('[Storyblok] Background project sync failed.', e));
 }
 boot();
 
